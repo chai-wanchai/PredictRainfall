@@ -11,4 +11,11 @@ a = '20160228'
 date = datetime.strptime(a, '%Y%m%d').strftime('%m%d%Y')
 print(date)
 
+file = open("testfile.txt", "w")
 
+file.write("Hello World")
+file.write("This is ournewtextfile")
+file.write(" and this is anotherline.")
+file.write("Why? Becausewecan.")
+
+file.close() 
