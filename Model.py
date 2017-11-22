@@ -41,7 +41,10 @@ selectTrain = 0
 selectTest = 0
 fullpathTrain= ""
 fullpathTest =""
-SelectColumn = ['Lat', 'Long', 'IR8','IR13','IR15','IR8-IR13','IR8-IR15','IR13-IR15', 'Rain']
+SelectColumn = ['Lat', 'Long', 'avg_IR8',
+                'avg_IR13',
+                 'avg_IR15',
+                 'Rain']
 
 
 ############  function Calulate Score Parameter as Accuracy Speccifity Sensivity ##################
@@ -275,7 +278,7 @@ def Start():
     # else:
     #     worksheet.write('B1', ModelVote[j], headerFormat)
     # worksheet.write('E1', fullpathTrain)
-    df_Train = pd.read_csv(fullpathTrain,usecols=SelectColumn,dtype={'Date':str,'Lat':float,'Long':float,'IR8':float,'IR13':float,'IR15':float,'Rain':float})
+    df_Train = pd.read_csv(fullpathTrain,usecols=SelectColumn)#,dtype={'Date':str,'Lat':float,'Long':float,'IR8':float,'IR13':float,'IR15':float,'Rain':float})
     #df_Test = pd.read_csv(fullpathTest,usecols=SelectColumn,dtype={'Date':str,'Lat':float,'Long':float,'IR8':float,'IR13':float,'IR15':float,'Rain':float})
 
     print('=================head')

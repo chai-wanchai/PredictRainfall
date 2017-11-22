@@ -23,11 +23,12 @@ def ReadFile(date,IR):
     tbb15 = np.asarray(IR15.variables['tbb15'])
     tbb8 = np.asarray(IR8.variables['tbb08'])
 
-
-    DistanceX = 0.05
     IR13.close()
     IR15.close()
     IR8.close()
+
+    DistanceX = 0.05
+
 
     writeTofile=[]
     for i in a.index:
@@ -47,35 +48,35 @@ def ReadFile(date,IR):
         temp15 = temp15[temp15.index >= LatCenter[i] - DistanceX]
         temp15 = temp15[temp15.index <= LatCenter[i] + DistanceX]
 
-        col_8=[]
-        col_13 = []
-        col_15 = []
-        
-        for j in temp8.columns:
-            if j <=LongCenter[i]+DistanceX and j>=LongCenter[i]-DistanceX:
-                col_8.append(j)
-                col_13.append(j)
-                col_15.append(j)
 
-        # print(colt)
-        # print(temp8[colt])
-        temp8=temp8[col_8].values.flatten()
+        col_8 = [f for f in temp8.columns if f <= LongCenter[i] + DistanceX and f >= LongCenter[i] - DistanceX]
+        col_13 = [f for f in temp13.columns if f <= LongCenter[i] + DistanceX and f >= LongCenter[i] - DistanceX]
+        col_15 = [f for f in temp15.columns if f <= LongCenter[i] + DistanceX and f >= LongCenter[i] - DistanceX]
+
+
+        temp8 = temp8[col_8].values.flatten()
         temp13 = temp13[col_13].values.flatten()
         temp15 = temp15[col_15].values.flatten()
 
         writeTofile.append([date, LatCenter[i], LongCenter[i],
-                            np.mean(temp8),np.max(temp8),np.min(temp8),
-                            np.mean(temp13),np.max(temp13),np.min(temp13),
-                            np.mean(temp15),np.max(temp15),np.min(temp15),
-                            a['Rain'][i]])
+                    np.mean(temp8),np.max(temp8),np.min(temp8),
+                    np.mean(temp13),np.max(temp13),np.min(temp13),
+                    np.mean(temp15),np.max(temp15),np.min(temp15),
+                    abs(np.mean(temp8)-np.mean(temp13)),abs(np.mean(temp8)-np.mean(temp15)),abs(np.mean(temp13)-np.mean(temp15)),
+                    abs(np.max(temp8)-np.max(temp13)),abs(np.max(temp8)-np.max(temp15)),abs(np.max(temp13)-np.max(temp15)),
+                    abs(np.min(temp8)-np.min(temp13)), abs(np.min(temp8) - np.min(temp15)),abs(np.min(temp13) - np.min(temp15)),
+                    a['Rain'][i]])
     f = pd.DataFrame(writeTofile,
-                    columns=['Date', 'Lat', 'Long', 'mean_IR8', 'max_IR8', 'min_IR8',
-                             'mean_IR13', 'max_IR13','min_IR13',
-                             'mean_IR15', 'max_IR15', 'min_IR15',
+                    columns=['Date', 'Lat', 'Long', 'avg_IR8', 'max_IR8', 'min_IR8',
+                             'avg_IR13', 'max_IR13','min_IR13',
+                             'avg_IR15', 'max_IR15', 'min_IR15',
+                             'diff_avg_IR8-13','diff_avg_IR8-15','diff_avg_IR13-15',
+                             'diff_max_IR8-13', 'diff_max_IR8-15', 'diff_max_IR13-15',
+                             'diff_min_IR8-13', 'diff_min_IR8-15', 'diff_min_IR13-15',
                              'Rain'])
     day = datetime.strptime(date, "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d")
-    time = datetime.strptime(date, "%Y-%m-%d %H:%M:%S").strftime("%H%M")
-    WriteToCSV(day+'_'+time,f)
+
+    WriteToCSV(month,f)
 
 
 def ReadMin(Filename):
@@ -89,26 +90,32 @@ def ReadMin(Filename):
         t=t+10
 
 
-def WriteToCSV(Filename,Frame):
-    if os.path.isfile(outputPath+'Pre.csv'):
-        Frame.to_csv(outputPath+'Pre.csv', mode='a', index=False, header=False)
+def WriteToCSV(day,Frame):
+    if os.path.isfile(outputPath+'Prepreocess_{0}.csv'.format(day)):
+        Frame.to_csv(outputPath+'Prepreocess_{0}.csv'.format(day), mode='a', index=False, header=False)
     else:
-        Frame.to_csv(outputPath+'Pre.csv'.format(Filename), mode='w', index=False)
+        Frame.to_csv(outputPath+'Prepreocess_{0}.csv'.format(day), mode='w', index=False)
 
 def checkIR8(Filename):
     file = [f for f in os.listdir(pathIR8) if f.endswith('.nc') and f==Filename]
     if len(file)>0:
         return True
+    else:
+        return False
 
 def checkIR13(Filename):
     file = [f for f in os.listdir(pathIR13) if f.endswith('.nc') and f==Filename]
     if len(file)>0:
         return True
+    else:
+        return False
 
 def checkIR15(Filename):
     file = [f for f in os.listdir(pathIR15) if f.endswith('.nc') and f==Filename]
     if len(file)>0:
         return True
+    else:
+        return False
 
 if __name__ == '__main__':
     file = ''
@@ -116,34 +123,46 @@ if __name__ == '__main__':
     pathIR13 = ''
     pathIR15 = ''
     outputPath=''
+    DateinOutput=datetime.now().strftime("%Y-%m-%d")
+    if os.path.isdir('.\\output_{0}\\'.format(DateinOutput)) == False:
+        os.mkdir('.\\output_{0}\\'.format(DateinOutput))
+
+
     if platform.system()=='Windows':
         file = '.\\data\\rain\\5-9_2017.csv'
         pathIR8 = '.\\data\\irdata\\ir08nc\\'
         pathIR13 = '.\\data\\irdata\\ir13nc\\'
         pathIR15 = '.\\data\\irdata\\ir15nc\\'
-        outputPath ='.\\output\\'
+        outputPath = '.\\output_{0}\\'.format(DateinOutput)
+
     else:
         file = '/data/rain/5-9_2017.csv'
         pathIR8 = '/data/irdata/ir08nc/'
         pathIR13 = '/data/irdata/ir13nc/'
         pathIR15 = '/data/irdata/ir15nc/'
-        outputPath = '/output/'
+        outputPath = './output_{0}/'.format(DateinOutput)
 
     header = ['Date', 'Lat', 'Long', 'Rain']
     df = pd.read_csv(file, names=header)
     #print(len(pd.unique(df['Date'])))
     #print(df)
     date = pd.unique(df['Date'])
-
+    s = datetime.now()
     for dt in date:
         day = datetime.strptime(dt, "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d")
         time = datetime.strptime(dt, "%Y-%m-%d %H:%M:%S").strftime("%H%M")
+        month = datetime.strptime(dt, "%Y-%m-%d %H:%M:%S").strftime("%Y%m")
+        #print(month)
         #print('IR13_'+day+'_'+time+'.nc')
         IR8_check=checkIR8('IR08_'+day+'_'+time+'.nc')
         IR13_check=checkIR13('IR13_' + day + '_' + time + '.nc')
         IR15_check=checkIR15('IR15_' + day + '_' + time + '.nc')
+
         if IR8_check==True and IR13_check==True and  IR15_check==True:
             IRfile = day+'_'+time+'.nc'
             #print(IRfile)
             ReadFile(dt,IRfile)
-            #ReadMin(dt)
+
+    e = datetime.now()
+    print(e-s)
+
