@@ -1,390 +1,301 @@
-import pandas as pd
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix
-from sklearn.model_selection import cross_val_score
-from sklearn.metrics import auc
-from sklearn.model_selection import KFold
-import os
-import numpy as np
-import datetime as T
-####################  Model Import  ######################
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import NearestNeighbors
-from sklearn.ensemble import VotingClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.neural_network import MLPClassifier
-from sklearn.ensemble import ExtraTreesClassifier
-from sklearn import svm
-import xlsxwriter
-from sklearn.externals import joblib
+import numpy
+import pandas
+import datetime
 import platform
-from sklearn.model_selection import train_test_split
-#############  Global Variable ###################
-workbook =  ""
-text_file=""
-worksheet = ""
-headerFormat = ""
-colFormat = ""
-redBold = ""
-center = ""
-ModelVote = ['Discision Tree', 'Random Forest', 'KNeighbors', 'Neuron Network','NaiveBayes','Extra Tree','SVM','Voting']
-k=0
-accuracy=0
-recordTrain=0
-recordTest=0
-SelectModelVote = []
-path =""
-file = ""
-selectTrain = 0
-selectTest = 0
-fullpathTrain= ""
-fullpathTest =""
-SelectColumn = ['Lat', 'Long', 'avg_IR8',
-                'avg_IR13',
-                 'avg_IR15',
-                 'Rain']
+from sklearn import linear_model
+import sklearn.metrics as sm
+from sklearn.ensemble import AdaBoostRegressor
+import os
+from sklearn.neural_network import MLPRegressor
+from sklearn.neighbors import KNeighborsRegressor
+
+def LinearBoot(dataTrain,dataTest,TestCol,outputpath):
+    modelName = 'LinearRegression'
+    s = datetime.datetime.now()
+
+    X_train = dataTrain.drop('Rain', axis=1)
+    y_train = dataTrain['Rain']  # .loc[dataTrain['Rain'] >= 0, 'Rain']
+
+    X_test = dataTest.drop('Rain', axis=1)
+    y_test = dataTest['Rain']  # .loc[dataTest['Rain'] >= 0, 'Rain']
+
+    X_train_Nodate = X_train[TestCol]
+    X_test_Nodeate = X_test[TestCol]
 
 
-############  function Calulate Score Parameter as Accuracy Speccifity Sensivity ##################
+    # Create the linear regressor model
+    linear_regressor = AdaBoostRegressor(linear_model.LinearRegression(n_jobs=-1),n_estimators=300)
 
-def CalScoreParameter(confusion,label):
-    global headerFormat,colFormat,redBold,center,worksheet,k,accuracy
-    confusion = confusion.fillna(0)
-    FP = confusion.sum(axis=0) - np.diag(confusion)
-    FN = confusion.sum(axis=1) - np.diag(confusion)
-    TP = np.diag(confusion)
-    TN = confusion.values.sum() - (FP + FN + TP)
+    # Train the model using the training sets
+    linear_regressor.fit(X_train_Nodate, y_train)
 
-    # Sensitivity, hit rate, recall, or true positive rate
-    TPR = TP / (TP + FN)
-    # Specificity or true negative rate
-    TNR = TN / (TN + FP)
-    # Precision or positive predictive value
-    PPV = TP / (TP + FP)
-    # Negative predictive value
-    NPV = TN / (TN + FN)
-    # Fall out or false positive rate
-    FPR = FP / (FP + TN)
-    # False negative rate
-    FNR = FN / (TP + FN)
-    # False discovery rate
-    FDR = FP / (TP + FP)
-    # F-meature
-    F_measure = 2 * (PPV * TPR) / (PPV + TPR)
-    # AUC
-    AUC = auc(FPR, TPR,reorder=True)
-    # Overall accuracy
-    ACC = (TP + TN) / (TP + FP + FN + TN)
-    print(label,'\n',ACC)
-    # text_file.write("\n---------------- {0} ------------------------\n".format(label))
-    # text_file.write("\n################ overall accuracy ###########\n {0}"
-    #                 "\n#############################################".format(ACC))
-    #
-    #
-    # text_file.write("\n##################  TPR  ######################\n{0}"
-    #                 "\n##################  TNR  ######################\n{1}"
-    #                 "\n##################  PPV  ######################\n{2}"
-    #                 "\n##################  NPV  ######################\n{3}"
-    #                 "\n##################  FPR  ######################\n{4}"
-    #                 "\n##################  FNR  ######################\n{5}"
-    #                 "\n##################  FDR  ######################\n{6}"
-    #                 "\n##################  AUC  ######################\n{7}"
-    #                 "\n##################  F_measure  ######################\n{8}"
-    #                 .format(TPR, TNR, PPV, NPV, FPR, FNR, FDR,AUC , F_measure))
-    # text_file.write("\n-------------------------------------------------\n")
-    #
-    # ###################----------------  Excel -----------------################
-    #
-    # worksheet.write(1, k, label, colFormat)
-    # parameter = ['ACC', 'TPR', 'TNR', 'PPV', 'NPV', 'FPR', 'FNR', 'FDR', 'F_measure']
-    # # paraData = [ACC,TPR,TNR,PPV,NPV,FPR,FNR,FDR,F_measure]
-    #
-    # stage = len(ACC)
-    #
-    # i = 2
-    # columnK = k
-    #
-    # for para in parameter:
-    #
-    #     worksheet.write(i, 0, para, redBold)
-    #     ii = i
-    #     for s in range(stage):
-    #         ii += 1
-    #         worksheet.write(ii, 0, 'stage' + str(s + 1))
-    #         if para == 'ACC':
-    #             try:
-    #                 worksheet.write(ii, columnK, ACC[s])
-    #             except IndexError:
-    #                 worksheet.write(ii, columnK, 'NULL')
-    #
-    #         if para == 'TPR':
-    #             try:
-    #                 worksheet.write(ii, columnK, TPR[s])
-    #             except IndexError:
-    #                 worksheet.write(ii, columnK, 'NULL')
-    #         if para == 'TNR':
-    #             try:
-    #                 worksheet.write(ii, columnK, TNR[s])
-    #             except IndexError:
-    #                 worksheet.write(ii, columnK, 'NULL')
-    #         if para == 'PPV':
-    #             try:
-    #                 worksheet.write(ii, columnK, PPV[s])
-    #             except IndexError:
-    #                 worksheet.write(ii, columnK, 'NULL')
-    #         if para == 'NPV':
-    #             try:
-    #                 worksheet.write(ii, columnK, NPV[s])
-    #             except IndexError:
-    #                 worksheet.write(ii, columnK, 'NULL')
-    #         if para == 'FPR':
-    #             try:
-    #                 worksheet.write(ii, columnK, FPR[s])
-    #             except IndexError:
-    #                 worksheet.write(ii, columnK, 'NULL')
-    #         if para == 'FNR':
-    #             try:
-    #                 worksheet.write(ii, columnK, FNR[s])
-    #             except IndexError:
-    #                 worksheet.write(ii, columnK, 'NULL')
-    #         if para == 'FDR':
-    #             try:
-    #                 worksheet.write(ii, columnK, FDR[s])
-    #             except IndexError:
-    #                 worksheet.write(ii, columnK, 'NULL')
-    #         if para == 'F_measure':
-    #             try:
-    #                 worksheet.write(ii, columnK, F_measure[s])
-    #             except IndexError:
-    #                 worksheet.write(ii, columnK, 'NULL')
-    #    i = i + stage + 2
-    # worksheet.write(i, 0, 'AUC', redBold)
-    # worksheet.write(i, columnK, AUC)
-    # worksheet.write(i + 1, 0, 'Accuracy', redBold)
-    # worksheet.write(i + 1, columnK, accuracy)
-    # worksheet.write(i + 2, 0, 'Record')
-    # worksheet.write(i + 3, 0, 'Record Train')
-    # worksheet.write(i + 3, columnK, recordTrain)
-    # worksheet.write(i + 4, 0, 'Record Test')
-    # worksheet.write(i + 4, columnK, recordTest)
+    # Predict the output
+    y_pred = linear_regressor.predict(X_test_Nodeate)
 
-    ############################################################################
+    # Measure performance
+    print("Linear Regressor performance:")
+    MAE = round(sm.mean_absolute_error(y_test, y_pred), 2)
+    MSE = round(sm.mean_squared_error(y_test, y_pred), 2)
+    MedienAE = round(sm.median_absolute_error(y_test, y_pred), 2)
+    R2score = round(sm.r2_score(y_test, y_pred), 2)
 
-###################################################################################################
-def Voting():
-    print("---------------Model for Voting---------------")
-    Vote = []
-    NumberOfModel = (int)(input("Total Model for voting : "))
+    print("Mean absolute error =", MAE)
+    print("Mean squared error =", MSE)
+    print("Median absolute error =", MedienAE)
+    print("Explained variance score =", round(sm.explained_variance_score(y_test, y_pred), 2))
+    print("R2 score =", R2score)
 
-    for i in range(NumberOfModel):
-        ii = (int)(input("Model {0}:".format(i+1)))
-        Vote.append([ModelVote[ii],SelectModel(ii)])
+    y_pred = numpy.round(y_pred,1)
+    X_test.loc[:,'Predict_Rain'] = pandas.Series(y_pred, index=X_test.index)
 
-    modelVoting = VotingClassifier(estimators=Vote,voting='hard')
-    return  modelVoting
-##############################################################################################
+    outFile = pandas.DataFrame(X_test[['Date','Lat','Long','Predict_Rain']])
 
-def SelectModel(NumberModel):
+    #print(dataTrain.loc[dataTrain['Rain'] >0, 'Rain'])
+    outFile.to_csv(outputpath+'Result_predict_{0}.csv'.format(modelName),index=False)
+    text = open(outputpath+'Result_{0}.txt'.format(modelName),mode='a')
+    text.write("Mean absolute error ={0}\n".format(MAE))
+    text.write("Mean squared error ={0}\n".format(MSE))
+    text.write("Median absolute error ={0}\n".format(MedienAE))
+    text.write("R2 score ={0}\n".format(R2score))
+    e = datetime.datetime.now()
+    text.write("Total Time:{0}\n".format(e-s))
+    text.close()
 
-    if ModelVote[NumberModel] == 'Discision Tree':
-        SelectModelVote.append('DT')
-        model = DecisionTreeClassifier(class_weight='balanced',criterion='entropy',presort=True,random_state=10)
-    if ModelVote[NumberModel] == 'Random Forest':
-        SelectModelVote.append('RF')
-        model = RandomForestClassifier(n_estimators=200, criterion='entropy', n_jobs=-1)
-    if ModelVote[NumberModel] == 'KNeighbors':
-        SelectModelVote.append('KNN')
-        model = KNeighborsRegressor(n_neighbors=8, weights='distance', algorithm='auto', n_jobs=-1)
-    if ModelVote[NumberModel] == 'Neuron Network':
-        SelectModelVote.append('NN')
-        model = MLPClassifier(activation='logistic', solver='adam', alpha=1e-5, learning_rate='adaptive',
-                              max_iter=10000)
-    if ModelVote[NumberModel] == 'NaiveBayes':
-        SelectModelVote.append('NB')
-        model = GaussianNB()
-    if ModelVote[NumberModel] == 'Extra Tree':
-        SelectModelVote.append('ET')
-        model = ExtraTreesClassifier(n_estimators=100, max_depth=None, criterion='entropy', n_jobs=-1)
-    if ModelVote[NumberModel] == 'SVM':
-        SelectModelVote.append('SVM')
-        model = svm.SVC(kernel='sigmoid', probability=True)
-    if ModelVote[NumberModel] == 'Voting':
-        model = Voting()
-    return model
-##################  test data #####################
-def Start():
-    global text_file ,k ,recordTest,recordTrain,accuracy
-    global workbook , worksheet
-    global headerFormat, colFormat, redBold, center,SelectColumn
-    s = T.datetime.now()
-    print("################# This program is Model Training ################################")
+def Linear(dataTrain,dataTest,TestCol,outputpath):
+    modelName = 'LinearRegression'
+    s = datetime.datetime.now()
+
+    X_train = dataTrain.drop('Rain', axis=1)
+    y_train = dataTrain['Rain']  # .loc[dataTrain['Rain'] >= 0, 'Rain']
+
+    X_test = dataTest.drop('Rain', axis=1)
+    y_test = dataTest['Rain']  # .loc[dataTest['Rain'] >= 0, 'Rain']
+
+    X_train_Nodate = X_train[TestCol]
+    X_test_Nodeate = X_test[TestCol]
 
 
+    # Create the linear regressor model
+    linear_regressor = linear_model.LinearRegression(n_jobs=-1)
 
-    print("Model for Test")
-    for i, modelList in enumerate(ModelVote):
-        print(i, " ", modelList)
+    # Train the model using the training sets
+    linear_regressor.fit(X_train_Nodate, y_train)
 
-    j = (int)(input("Select number of Model:"))
-    model=SelectModel(j)
+    # Predict the output
+    y_pred = linear_regressor.predict(X_test_Nodeate)
 
+    # Measure performance
+    print("Linear Regressor performance:")
+    MAE = round(sm.mean_absolute_error(y_test, y_pred), 2)
+    MSE = round(sm.mean_squared_error(y_test, y_pred), 2)
+    MedienAE = round(sm.median_absolute_error(y_test, y_pred), 2)
+    R2score = round(sm.r2_score(y_test, y_pred), 2)
 
+    print("Mean absolute error =", MAE)
+    print("Mean squared error =", MSE)
+    print("Median absolute error =", MedienAE)
+    print("Explained variance score =", round(sm.explained_variance_score(y_test, y_pred), 2))
+    print("R2 score =", R2score)
 
-    path = input("Enter path of Train File :")
-    file = [f for f in os.listdir(path) if f.endswith('.csv')]
-    for i in range(len(file)):
-        print(i, file[i])
+    y_pred = numpy.round(y_pred,1)
+    X_test.loc[:,'Predict_Rain'] = pandas.Series(y_pred, index=X_test.index)
 
-    selectTrain = (int)(input("Enter number of Train file :"))
-    #selectTest =(int)(input("Enter number of Test file :"))
-    fullpathTrain = path + "\\" + file[selectTrain]
-    #fullpathTest = path + "\\" + file[selectTest]
+    outFile = pandas.DataFrame(X_test[['Date','Lat','Long','Predict_Rain']])
 
-    if platform.system()=='Linux':
-        path = path+'/'
-        fullpathTrain = path+file[selectTrain]
-        #fullpathTest = path+file[selectTest]
+    #print(dataTrain.loc[dataTrain['Rain'] >0, 'Rain'])
+    outFile.to_csv(outputpath+'Result_predict_{0}.csv'.format(modelName),index=False)
+    text = open(outputpath+'Result_{0}.txt'.format(modelName),mode='a')
+    text.write("Mean absolute error ={0}\n".format(MAE))
+    text.write("Mean squared error ={0}\n".format(MSE))
+    text.write("Median absolute error ={0}\n".format(MedienAE))
+    text.write("R2 score ={0}\n".format(R2score))
+    e = datetime.datetime.now()
+    text.write("Total Time:{0}\n".format(e-s))
+    text.close()
 
+def Bayesian(dataTrain,dataTest,TestCol,outputpath):
+    modelName = 'RandomForestRegress'
+    s = datetime.datetime.now()
 
+    X_train = dataTrain.drop('Rain', axis=1)
+    y_train = dataTrain['Rain']  # .loc[dataTrain['Rain'] >= 0, 'Rain']
 
-    # nameOfFile = 'fff'#file[selectTrain].replace('_','').replace('Trainset','').replace('SeparateEachEpochPerRow','').replace('Normalization',str([f for f in SelectModelVote])).replace(".csv", "_{0}stage.txt".format(str(")))
-    #
-    # text_file = open(path + nameOfFile, "w")
-    # text_file.write("Start Time: "+str(s))
-    # text_file.write("\nRead from file :" + file[selectTrain])
-    # text_file.write("\nRead from file :" + file[selectTest])
-    # text_file.write("\nParameter:\n{0}\n{1}".format(str(model.get_params()), str(model)))
-    # if ModelVote[j] == 'Voting':
-    #     workbook = xlsxwriter.Workbook(path + file[selectTrain].replace('Trainset_', 'Result').replace(".csv", ".xlsx"), {'nan_inf_to_errors': True})
-    # else:
-    #     workbook = xlsxwriter.Workbook(path + file[selectTrain].replace('Trainset_', 'Result').replace(".csv", ".xlsx"), {'nan_inf_to_errors': True})
-    #
-    #
-    # nameOfSheet ='ff'#file[selectTrain].replace('Trainset','').replace('SeparateEachEpochPerRow','').replace('Normalization','').replace(".csv", "").replace('_','')
-    # print(nameOfSheet)
-    # worksheet = workbook.add_worksheet(name=str(nameOfSheet))
-    # worksheet.set_column(0, 0, width=15.75)
-    # worksheet.set_column('B:L', width=12)
-    # headerFormat = workbook.add_format({'align': 'center', 'bold': True, 'font_color': 'red', 'font_size': 16, 'font_name': 'Tahoma'})
-    # colFormat = workbook.add_format({'bold': True, 'align': 'center', 'bg_color': '#FFFF00', 'font_size': 11})
-    # redBold = workbook.add_format({'bold': True, 'font_color': 'red'})
-    # center = workbook.add_format({'align': 'center'})
-    # worksheet.write('A1', 'Epoch '+nameOfSheet.replace('Signal',''), headerFormat)
-    # if ModelVote[j] =='Voting':
-    #     worksheet.write('B1', ModelVote[j], headerFormat)
-    #     worksheet.write('C1',str(SelectModelVote),headerFormat)
-    # else:
-    #     worksheet.write('B1', ModelVote[j], headerFormat)
-    # worksheet.write('E1', fullpathTrain)
-    df_Train = pd.read_csv(fullpathTrain,usecols=SelectColumn)#,dtype={'Date':str,'Lat':float,'Long':float,'IR8':float,'IR13':float,'IR15':float,'Rain':float})
-    #df_Test = pd.read_csv(fullpathTest,usecols=SelectColumn,dtype={'Date':str,'Lat':float,'Long':float,'IR8':float,'IR13':float,'IR15':float,'Rain':float})
+    X_test = dataTest.drop('Rain', axis=1)
+    y_test = dataTest['Rain']  # .loc[dataTest['Rain'] >= 0, 'Rain']
 
-    print('=================head')
+    X_train_Nodate = X_train[TestCol]
+    X_test_Nodeate = X_test[TestCol]
 
+    model = AdaBoostRegressor(linear_model.BayesianRidge(),n_estimators=300)
+    model.fit(X_train_Nodate, y_train)
+    y_predict = model.predict(X_test_Nodeate)
 
-    x =df_Train.drop('Rain', axis=1)
-    y =np.asarray(df_Train['Rain'],dtype="|S6")
-    # df_Train = df_Train[SelectColumn]
-    # df_Train = df_Train.dropna()
-    # X_train = df_Train.drop('Rain', axis=1)
-    # y_train = df_Train['Rain'].replace('None',0)
-    # print(df_Train.head(5))
-    # #text_file.write("\n{0}".format(df_Train.head(5)))
-    #
-    # df_Test = df_Test[SelectColumn]
-    # df_Test = df_Test.dropna()
-    # X_test = df_Test.drop('Rain', axis=1)
-    # y_test = df_Test['Rain'].replace('None',0)
+    print("Baysian performance:")
+    MAE = round(sm.mean_absolute_error(y_test, y_predict), 2)
+    MSE = round(sm.mean_squared_error(y_test, y_predict), 2)
+    MedienAE = round(sm.median_absolute_error(y_test, y_predict), 2)
+    R2score = round(sm.r2_score(y_test, y_predict), 2)
+    print("Mean absolute error =", MAE)
+    print("Mean squared error =", MSE)
+    print("Median absolute error =", MedienAE)
+    print("Explained variance score =", round(sm.explained_variance_score(y_test, y_predict), 2))
+    print("R2 score =", R2score)
 
+    y_pred = numpy.round(y_predict, 1)
+    X_test.loc[:, 'Predict_Rain'] = pandas.Series(y_pred, index=X_test.index)
 
-    X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=42)
-    print('=============================Tail')
-    print(df_Train.tail())
-    print('=============================y')
+    outFile = pandas.DataFrame(X_test[['Date', 'Lat', 'Long', 'Predict_Rain']])
+    # print(outFile)
+    # print(dataTrain.loc[dataTrain['Rain'] > 0, 'Rain'])
+    outFile.to_csv(outputpath+'Result_predict_{0}.csv'.format(modelName), index=False)
+    text = open(outputpath+'Result_{0}.txt'.format(modelName), mode='a')
+    text.write("Mean absolute error ={0}\n".format(MAE))
+    text.write("Mean squared error ={0}\n".format(MSE))
+    text.write("Median absolute error ={0}\n".format(MedienAE))
+    text.write("R2 score ={0}\n".format(R2score))
+    e = datetime.datetime.now()
+    text.write("Total Time:{0}".format(e - s))
+    text.close()
 
-    #text_file.write("\nTotal Row : " + str(row))
+def NN(dataTrain,dataTest,TestCol,outputpath):
+    modelName = 'NeuronNetwork'
+    s = datetime.datetime.now()
 
-    ###############  Crossvalidation  ###################
+    X_train = dataTrain.drop('Rain', axis=1)
+    y_train = dataTrain['Rain']  # .loc[dataTrain['Rain'] >= 0, 'Rain']
 
-    kf = KFold(n_splits=10)
-    k = 1
-    recordKF = []
-    scoresKFold = []
-    print("###################  Cross Validation  #####################")
-    #
-    # for train_index, test_index in kf.split(X_train):
-    #     model_Cross = model
-    #
-    #     X_train_Cross, X_test_Cross = X_train.loc[train_index], X_train.loc[test_index]
-    #     y_train_Cross, y_test_Cross = y_train.loc[train_index], y_train.loc[test_index]
-    #     X_train_Cross = X_train_Cross.dropna()
-    #     X_test_Cross = X_test_Cross.dropna()
-    #     y_train_Cross = y_train_Cross.dropna()
-    #     y_test_Cross = y_test_Cross.dropna()
-    #     # print("X_Train:",X_train_Cross)
-    #     model_Cross.fit(X_train_Cross, y_train_Cross)
-    #     y_predict_Cross = model_Cross.predict(X_test_Cross)
-    #     accuracy = accuracy_score(y_test_Cross, y_predict_Cross)
-    #     scoresKFold.append(accuracy)
-    #     recordTest = y_test_Cross.count()
-    #     recordTrain = y_train_Cross.count()
-    #     confusion_matrix_cross = pd.DataFrame(confusion_matrix(y_test_Cross, y_predict_Cross))
-    #     CalScoreParameter(confusion_matrix_cross, "K-" + str(k))
-    #     recordKF.append(["Record K-{0}: Train({1}) Test({2})".format(k, recordTrain, recordTest)])
-    #
-    #     k += 1
+    X_test = dataTest.drop('Rain', axis=1)
+    y_test = dataTest['Rain']  # .loc[dataTest['Rain'] >= 0, 'Rain']
 
+    X_train_Nodate = X_train[TestCol]
+    X_test_Nodeate = X_test[TestCol]
 
-    # print('==================accuracy crossvalidation ==============')
-    # print("score k fold :", scoresKFold)
-    # print("Accuracy: %0.2f (+/- %0.2f)" % (np.mean(scoresKFold), np.std(scoresKFold) * 2))
+    NN = MLPRegressor(hidden_layer_sizes=10,activation='logistic',solver='adam')
+    NN.fit(X_train_Nodate, y_train)
+    y_predict = NN.predict(X_test_Nodeate)
+    MAE = round(sm.mean_absolute_error(y_test, y_predict), 2)
+    MSE = round(sm.mean_squared_error(y_test, y_predict), 2)
+    MedienAE = round(sm.median_absolute_error(y_test, y_predict), 2)
+    R2score = round(sm.r2_score(y_test, y_predict), 2)
+    # print("pre:",y_pred.shape,"true:",y_test.shape)
+    # score = linear_regressor.score(y_pred.reshape(1,),y_test.reshape(1,))
+    print("Mean absolute error =", MAE)
+    print("Mean squared error =", MSE)
+    print("Median absolute error =", MedienAE)
+    print("Explained variance score =", round(sm.explained_variance_score(y_test, y_predict), 2))
+    print("R2 score =", R2score)
+    # print("Accuracy:",accuracy_score(y_test,y_pred))
+    y_pred = numpy.round(y_predict, 1)
+    # data_frame = pd.DataFrame(y_pred)
+    # data_frame['Rain_Predict'] = pd.Series(y_pred, index=data_frame.index)
+    # result = pd.Series(y_pred, index=X_test.index)
+    X_test.loc[:, 'Predict_Rain'] = pandas.Series(y_pred, index=X_test.index)
 
-    ######  Train set and Test set ########
-    print(X_train,"fff")
-    model.fit(X_train, y_train)
-    y_predict = model.predict(X_test)
-
-    print('==================accuracy Testset =======================')
-
-    accuracy = accuracy_score(y_test, y_predict)
-    print(accuracy)
-    # recordTrain = y_train.count()
-    # recordTest = y_test.count()
-    confusion = pd.DataFrame(confusion_matrix(y_test, y_predict))
-    #print(confusion)
-    CalScoreParameter(confusion, "Testset")
+    outFile = pandas.DataFrame(X_test[['Date', 'Lat', 'Long', 'Predict_Rain']])
+    # print(outFile)
+    print(dataTrain.loc[dataTrain['Rain'] > 0, 'Rain'])
+    outFile.to_csv(outputpath+'Result_predict_{0}.csv'.format(modelName), index=False)
+    text = open(outputpath+'Result_{0}.txt'.format(modelName), mode='a')
+    text.write("Mean absolute error ={0}\n".format(MAE))
+    text.write("Mean squared error ={0}\n".format(MSE))
+    text.write("Median absolute error ={0}\n".format(MedienAE))
+    text.write("R2 score ={0}\n".format(R2score))
+    e = datetime.datetime.now()
+    text.write("Total Time:{0}".format(e - s))
+    text.close()
 
 
+def KNN(dataTrain,dataTest,TestCol,outputpath):
+    s = datetime.datetime.now()
+    modelName = 'KNN'
+    X_train = dataTrain.drop('Rain', axis=1)
+    y_train = dataTrain['Rain']#.loc[dataTrain['Rain'] >= 0, 'Rain']
 
-    ######################  Write Result to File #############################
+    X_test = dataTest.drop('Rain', axis=1)
+    y_test = dataTest['Rain']#.loc[dataTest['Rain'] >= 0, 'Rain']
 
-    # text_file.write("\n##############  K-Fold #####################\n")
+    X_train_Nodate = X_train[TestCol]
+    X_test_Nodeate = X_test[TestCol]
 
-    #for i in range(len(scoresKFold)):
-    #     text_file.write("\nK-{0} : {1}\n\n{2}".format(i + 1, scoresKFold[i], recordKF[i]))
-    # text_file.write("\nMean K- Flod : {0}".format(np.mean(scoresKFold)))
-    #
-    # text_file.write("\nTrainset : {0}\nTestset :{1}".format(recordTrain, recordTest))
-    # text_file.write("\n############## Accuracy Train 70% and Test 30 % ##################\n "
-    #                 "{0} \n##########################################\n".format(accuracy))
-    # text_file.write("\n############## Confusion Matrix 70/30 ############ \n {0}"
-    #                 .format(confusion))
-    e = T.datetime.now()
-    # text_file.write("\nEnd Time: " + str(e))
-    # text_file.write("\nTotal Time : " + str(e - s))
-    # text_file.close()
-    # workbook.close()
-    BuildModel = input("Do you want to build model to .mdl ?")
-    if BuildModel=='Y' or BuildModel=='y':
-        if ModelVote[j]=='Voting':
-            joblib.dump(model, path + "\\"+'Export_'+ModelVote[j]+str(SelectModelVote)+'.mdl')
-        else:
-            joblib.dump(model, path + "\\"+'Export_'+ModelVote[j]+'.mdl')
+    KNN = KNeighborsRegressor(n_neighbors=8, weights='distance', algorithm='auto', n_jobs=-1)
+    KNN.fit(X_train_Nodate, y_train)
+    y_predict = KNN.predict(X_test_Nodeate)
+    MAE = round(sm.mean_absolute_error(y_test, y_predict), 2)
+    MSE = round(sm.mean_squared_error(y_test, y_predict), 2)
+    MedienAE = round(sm.median_absolute_error(y_test, y_predict), 2)
+    R2score = round(sm.r2_score(y_test, y_predict), 2)
+    # print("pre:",y_pred.shape,"true:",y_test.shape)
+    # score = linear_regressor.score(y_pred.reshape(1,),y_test.reshape(1,))
+    print("Mean absolute error =", MAE)
+    print("Mean squared error =", MSE)
+    print("Median absolute error =", MedienAE)
+    print("Explained variance score =", round(sm.explained_variance_score(y_test, y_predict), 2))
+    print("R2 score =", R2score)
+    # print("Accuracy:",accuracy_score(y_test,y_pred))
+    y_pred = numpy.round(y_predict, 1)
+    # data_frame = pd.DataFrame(y_pred)
+    # data_frame['Rain_Predict'] = pd.Series(y_pred, index=data_frame.index)
+    # result = pd.Series(y_pred, index=X_test.index)
+    X_test.loc[:, 'Predict_Rain'] = pandas.Series(y_pred, index=X_test.index)
+
+    outFile = pandas.DataFrame(X_test[['Date', 'Lat', 'Long', 'Predict_Rain']])
+    # print(outFile)
+    #print(dataTrain.loc[dataTrain['Rain'] > 0, 'Rain'])
+    outFile.to_csv(outputpath+'Result_predict_{0}.csv'.format(modelName), index=False)
+    text = open(outputpath+'Result_{0}.txt'.format(modelName), mode='a')
+    text.write("Mean absolute error ={0}\n".format(MAE))
+    text.write("Mean squared error ={0}\n".format(MSE))
+    text.write("Median absolute error ={0}\n".format(MedienAE))
+    text.write("R2 score ={0}\n".format(R2score))
+    e = datetime.datetime.now()
+    text.write("Total Time:{0}".format(e - s))
+    text.close()
+
+def start():
+    
+    path = input("Address of file:")
+    File = [f for f in os.listdir(path) if f.endswith('.csv')]
+    for i,f in enumerate(File):
+        print(i,f)
+    selectTrain = int(input("Select file Train:"))
+    pathTrain = path+File[selectTrain]
+
+    selectTest = int(input("Select file Test:"))
+    pathTest = path+File[selectTest]
+    #outputpath = '/home/team7/hackathon/output/'#input("path of output:")
+    # pathTrain = '/home/team7/hackathon/Prepreocess_Train.csv'
+    # pathTest = '/home/team7/hackathon/Clean_Prepreocess_Test.csv'
+    # outputpath = '/home/team7/hackathon/'
+    outputpath = './'
+    SelectColumn =['Date','Lat', 'Long', 'avg_IR8', 'max_IR8', 'min_IR8',
+             'avg_IR13', 'max_IR13','min_IR13',
+             'avg_IR15', 'max_IR15', 'min_IR15',
+             'diff_avg_IR8-13','diff_avg_IR8-15','diff_avg_IR13-15',
+             'diff_max_IR8-13', 'diff_max_IR8-15', 'diff_max_IR13-15',
+             'diff_min_IR8-13', 'diff_min_IR8-15', 'diff_min_IR13-15','Rain']
+
+    #['Date', 'Lat', 'Long', 'avg_IR8', 'avg_IR13', 'avg_IR15', 'Rain']
+    #TestCol = ['Lat', 'Long', 'avg_IR8', 'avg_IR13', 'avg_IR15']
+
+    TestCol =['Lat', 'Long', 'avg_IR8', 'max_IR8', 'min_IR8',
+             'avg_IR13', 'max_IR13','min_IR13',
+             'avg_IR15', 'max_IR15', 'min_IR15',
+             'diff_avg_IR8-13','diff_avg_IR8-15','diff_avg_IR13-15',
+             'diff_max_IR8-13', 'diff_max_IR8-15', 'diff_max_IR13-15',
+             'diff_min_IR8-13', 'diff_min_IR8-15', 'diff_min_IR13-15']
+
+    # Load the data from the input file
+    dataTrain = pandas.read_csv(pathTrain, usecols=SelectColumn)
+    dataTest = pandas.read_csv(pathTest, usecols=SelectColumn)
 
 
-    print(e - s)
-    print("Output :", path )
+    Linear(dataTrain, dataTest, TestCol,outputpath)
+    Bayesian(dataTrain, dataTest,TestCol,outputpath)
+    NN(dataTrain, dataTest, TestCol, outputpath)
+    LinearBoot(dataTrain, dataTest, TestCol, outputpath)
+    # KNN(dataTrain,dataTest,TestCol,outputpath)
+    # RF(dataTrain,dataTest,TestCol,outputpath)
+    # SVM(dataTrain,dataTest,TestCol,outputpath)
+
 if __name__ == '__main__':
-    Start()
+    start()
